@@ -2,9 +2,7 @@ import torch
 from torch.autograd import Variable
 from datetime import datetime
 import os
-from apex import amp
 import torch.nn.functional as F
-
 
 def eval_mae(y_pred, y):
     """
@@ -15,7 +13,6 @@ def eval_mae(y_pred, y):
     """
     return torch.abs(y_pred - y).mean()
 
-
 def numpy2tensor(numpy):
     """
     convert numpy_array in cpu to tensor in gpu
@@ -23,7 +20,6 @@ def numpy2tensor(numpy):
     :return: torch.from_numpy(numpy).cuda()
     """
     return torch.from_numpy(numpy).cuda()
-
 
 def clip_gradient(optimizer, grad_clip):
     """
@@ -37,12 +33,10 @@ def clip_gradient(optimizer, grad_clip):
             if param.grad is not None:
                 param.grad.data.clamp_(-grad_clip, grad_clip)
 
-
 def adjust_lr(optimizer, epoch, decay_rate=0.1, decay_epoch=30):
     decay = decay_rate ** (epoch // decay_epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] *= decay
-
 
 def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step):
     """
@@ -68,8 +62,7 @@ def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step):
         loss_im = loss_func(cam_im, gts)
         loss_total = loss_sm + loss_im
 
-        with amp.scale_loss(loss_total, optimizer) as scale_loss:
-            scale_loss.backward()
+        loss_total.backward()
 
         # clip_gradient(optimizer, opt.clip)
         optimizer.step()
