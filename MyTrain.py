@@ -25,15 +25,15 @@ if __name__ == "__main__":
     parser.add_argument('--save_epoch', type=int, default=10,
                         help='every N epochs save your trained snapshot')
     parser.add_argument('--save_model', type=str, default='./Snapshot/2020-CVPR-SINet/')
-    parser.add_argument('--train_img_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/Imgs')
-    parser.add_argument('--train_gt_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/GT')
+    parser.add_argument('--train_img_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/Imgs/')
+    parser.add_argument('--train_gt_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/GT/')
     opt = parser.parse_args()
 
     torch.cuda.set_device(opt.gpu)
 
     # TIPS: you also can use deeper network for better performance like channel=64
     model_SINet = SINet_ResNet50(channel=32).cuda()
-    print('-' * 30, model_SINet, '-' * 30)
+    # print('-' * 30, model_SINet, '-' * 30)
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
     LogitsBCE = torch.nn.BCEWithLogitsLoss()
