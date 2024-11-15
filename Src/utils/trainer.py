@@ -38,7 +38,7 @@ def adjust_lr(optimizer, epoch, decay_rate=0.1, decay_epoch=30):
     for param_group in optimizer.param_groups:
         param_group['lr'] *= decay
 
-def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step):
+def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step, best_mae, save_best_model):
     """
     Training iteration
     :param train_loader:
@@ -48,7 +48,9 @@ def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step):
     :param opt:
     :param loss_func:
     :param total_step:
-    :return:
+    :param best_mae:
+    :param save_best_model:
+    :return: best_mae
     """
     model.train()
     for step, data_pack in enumerate(train_loader):
@@ -74,5 +76,40 @@ def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step):
     save_path = opt.save_model
     os.makedirs(save_path, exist_ok=True)
 
-    if (epoch+1) % opt.save_epoch == 0:
-        torch.save(model.state_dict(), save_path + 'SINet_%d.pth' % (epoch+1))
+    # 验证模型并保存最好的模型
+    model.eval()
+    total_mae = 0.0
+    total_images = 0
+    for step, data_pack in enumerate(train_loader):
+        images, gts = data_pack
+        images = Variable(images).cuda()
+        gts = Variable(gts).cuda()
+
+        with torch.no_grad():
+            cam_sm, cam_im = model(images)
+            cam = (cam_sm + cam_im) / 2
+            mae = eval_mae(cam, gts)
+            total_mae += mae.item()
+            total_images += 1
+
+    average_mae = total_mae / total_images
+    print(f'[Validation] Epoch: {epoch}, Average MAE: {average_mae:.4f}')
+
+    if average_mae < best_mae:
+        best_mae = average_mae
+        save_best_model(model, save_path, epoch, best_mae)
+
+    return best_mae
+
+def save_best_model(model, save_path, epoch, best_mae):
+    """
+    Save the best model
+    :param model:
+    :param save_path:
+    :param epoch:
+    :param best_mae:
+    :return:
+    """
+    model_save_path = os.path.join(save_path, f'SINet_best_{epoch}_MAE_{best_mae:.4f}.pth')
+    torch.save(model.state_dict(), model_save_path)
+    print(f'Saved best model at epoch {epoch} with MAE {best_mae:.4f}')

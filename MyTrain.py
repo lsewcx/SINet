@@ -37,8 +37,8 @@ if __name__ == "__main__":
     # print('-' * 30, model_SINet, '-' * 30)
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
-    # LogitsBCE = torch.nn.BCEWithLogitsLoss()
-    # LossFunction = dice_loss  0.0791
+    # LogitsBCE = torch.nn.BCEWithLogitsLoss() eval:
+    # LossFunction = dice_loss  0.0609
     LossFunction = HuberLoss(delta=0.01)
 
     train_loader = get_loader(opt.train_img_dir, opt.train_gt_dir, batchsize=opt.batchsize,
