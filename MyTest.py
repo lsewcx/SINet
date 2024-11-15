@@ -3,11 +3,10 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import argparse
-from scipy import misc  # NOTES: pip install scipy == 1.2.2 (prerequisite!)
+import imageio  # 使用 imageio 替代 scipy.misc.imsave
 from Src.SINet import SINet_ResNet50
 from Src.utils.Dataloader import test_dataset
 from Src.utils.trainer import eval_mae, numpy2tensor
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=352, help='the snapshot input size')
@@ -15,6 +14,8 @@ parser.add_argument('--model_path', type=str,
                     default='./Snapshot/2020-CVPR-SINet/SINet_40.pth')
 parser.add_argument('--test_save', type=str,
                     default='./Result/2020-CVPR-SINet-New/')
+parser.add_argument('--image_root', type=str, default="/kaggle/input/cod10k_test/TestDataset/Imgs/",required=True, help='the root directory of test images')
+parser.add_argument('--gt_root', type=str, default="/kaggle/input/cod10k_test/TestDataset/GT/",required=True, help='the root directory of ground truth images')
 opt = parser.parse_args()
 
 model = SINet_ResNet50().cuda()
@@ -25,12 +26,12 @@ for dataset in ['COD10K']:
     save_path = opt.test_save + dataset + '/'
     os.makedirs(save_path, exist_ok=True)
     # NOTES:
-    #  if you plan to inference on your customized dataset without grouth-truth,
+    #  if you plan to inference on your customized dataset without ground-truth,
     #  you just modify the params (i.e., `image_root=your_test_img_path` and `gt_root=your_test_img_path`)
-    #  with the same filepath. We recover the original size according to the shape of grouth-truth, and thus,
-    #  the grouth-truth map is unnecessary actually.
-    test_loader = test_dataset(image_root='./Dataset/TestDataset/{}/Image/'.format(dataset),
-                               gt_root='./Dataset/TestDataset/{}/GT/'.format(dataset),
+    #  with the same filepath. We recover the original size according to the shape of ground-truth, and thus,
+    #  the ground-truth map is unnecessary actually.
+    test_loader = test_dataset(image_root=opt.image_root,
+                               gt_root=opt.gt_root,
                                testsize=opt.testsize)
     img_count = 1
     for iteration in range(test_loader.size):
@@ -46,7 +47,8 @@ for dataset in ['COD10K']:
         cam = cam.sigmoid().data.cpu().numpy().squeeze()
         # normalize
         cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
-        misc.imsave(save_path+name, cam)
+        # 保存图片
+        imageio.imwrite(save_path + name, cam)
         # evaluate
         mae = eval_mae(numpy2tensor(cam), numpy2tensor(gt))
         # coarse score
