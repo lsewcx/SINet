@@ -4,6 +4,12 @@ from Src.SINet import SINet_ResNet50
 from Src.utils.Dataloader import get_loader
 from Src.utils.trainer import trainer, adjust_lr
 
+def dice_loss(pred, target, smooth=1e-5):
+    pred = torch.sigmoid(pred)
+    intersection = (pred * target).sum()
+    dice = (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
+    return 1 - dice
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=40,
@@ -36,7 +42,8 @@ if __name__ == "__main__":
     # print('-' * 30, model_SINet, '-' * 30)
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
-    LogitsBCE = torch.nn.BCEWithLogitsLoss()
+    # LogitsBCE = torch.nn.BCEWithLogitsLoss()
+    LogitsBCE = dice_loss
 
     train_loader = get_loader(opt.train_img_dir, opt.train_gt_dir, batchsize=opt.batchsize,
                               trainsize=opt.trainsize, num_workers=12)

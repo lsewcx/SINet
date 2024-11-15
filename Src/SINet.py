@@ -4,7 +4,6 @@ import torchvision.models as models
 from .SearchAttention import SA
 from Src.backbone.ResNet import ResNet_2Branch
 
-
 class BasicConv2d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1):
         super(BasicConv2d, self).__init__()
@@ -19,9 +18,8 @@ class BasicConv2d(nn.Module):
         x = self.bn(x)
         return x
 
-
 class RF(nn.Module):
-    # Revised from: Receptive Field Block Net for Accurate and Fast Object Detection, 2018, ECCV
+    # 修改自: Receptive Field Block Net for Accurate and Fast Object Detection, 2018, ECCV
     # GitHub: https://github.com/ruinmessi/RFBNet
     def __init__(self, in_channel, out_channel):
         super(RF, self).__init__()
@@ -63,9 +61,8 @@ class RF(nn.Module):
         x = self.relu(x_cat + self.conv_res(x))
         return x
 
-
 class PDC_SM(nn.Module):
-    # Partial Decoder Component (Search Module)
+    # 部分解码器组件（搜索模块）
     def __init__(self, channel):
         super(PDC_SM, self).__init__()
         self.relu = nn.ReLU(True)
@@ -83,7 +80,6 @@ class PDC_SM(nn.Module):
         self.conv5 = nn.Conv2d(4*channel, 1, 1)
 
     def forward(self, x1, x2, x3, x4):
-        # print x1.shape, x2.shape, x3.shape, x4.shape
         x1_1 = x1
         x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
         x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) * self.conv_upsample3(self.upsample(x2)) * x3
@@ -99,9 +95,8 @@ class PDC_SM(nn.Module):
 
         return x
 
-
 class PDC_IM(nn.Module):
-    # Partial Decoder Component (Identification Module)
+    # 部分解码器组件（识别模块）
     def __init__(self, channel):
         super(PDC_IM, self).__init__()
         self.relu = nn.ReLU(True)
@@ -133,9 +128,8 @@ class PDC_IM(nn.Module):
 
         return x
 
-
 class SINet_ResNet50(nn.Module):
-    # resnet based encoder decoder
+    # 基于 ResNet 的编码器解码器
     def __init__(self, channel=32, opt=None):
         super(SINet_ResNet50, self).__init__()
 
@@ -161,17 +155,17 @@ class SINet_ResNet50(nn.Module):
             self.initialize_weights()
 
     def forward(self, x):
-        # ---- feature abstraction -----
-        # - head
+        # ---- 特征抽象 -----
+        # - 头部
         x0 = self.resnet.conv1(x)
         x0 = self.resnet.bn1(x0)
         x0 = self.resnet.relu(x0)
-        # - low-level features
+        # - 低级特征
         x0 = self.resnet.maxpool(x0)    # (BS, 64, 88, 88)
         x1 = self.resnet.layer1(x0)     # (BS, 256, 88, 88)
         x2 = self.resnet.layer2(x1)     # (BS, 512, 44, 44)
 
-        # ---- Stage-1: Search Module (SM) ----
+        # ---- Stage-1: 搜索模块 (SM) ----
         x01 = torch.cat((x0, x1), dim=1)        # (BS, 64+256, 88, 88)
         x01_down = self.downSample(x01)         # (BS, 320, 44, 44)
         x01_sm_rf = self.rf_low_sm(x01_down)    # (BS, 32, 44, 44)
@@ -191,20 +185,20 @@ class SINet_ResNet50(nn.Module):
         x4_sm_rf = self.rf4_sm(x4_sm)
         camouflage_map_sm = self.pdc_sm(x4_sm_rf, x3_sm_rf, x2_sm_rf, x01_sm_rf)
 
-        # ---- Switcher: Search Attention (SA) ----
+        # ---- 切换器: 搜索注意力 (SA) ----
         x2_sa = self.SA(camouflage_map_sm.sigmoid(), x2)    # (512, 44, 44)
 
-        # ---- Stage-2: Identification Module (IM) ----
+        # ---- Stage-2: 识别模块 (IM) ----
         x3_im = self.resnet.layer3_2(x2_sa)                 # (1024, 22, 22)
         x4_im = self.resnet.layer4_2(x3_im)                 # (2048, 11, 11)
 
         x2_im_rf = self.rf2_im(x2_sa)
         x3_im_rf = self.rf3_im(x3_im)
         x4_im_rf = self.rf4_im(x4_im)
-        # - decoder
+        # - 解码器
         camouflage_map_im = self.pdc_im(x4_im_rf, x3_im_rf, x2_im_rf)
 
-        # ---- output ----
+        # ---- 输出 ----
         return self.upsample_8(camouflage_map_sm), self.upsample_8(camouflage_map_im)
 
     def initialize_weights(self):
