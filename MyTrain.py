@@ -7,7 +7,7 @@ from Src.utils.trainer import trainer, adjust_lr, save_best_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=40,
+    parser.add_argument('--epoch', type=int, default=100,
                         help='epoch number, default=30')
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='init learning rate, try `lr=1e-4`')
@@ -37,9 +37,9 @@ if __name__ == "__main__":
     # print('-' * 30, model_SINet, '-' * 30)
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
-    # LogitsBCE = torch.nn.BCEWithLogitsLoss() eval:0.0689
+    LossFunction  = torch.nn.BCEWithLogitsLoss()
     # LossFunction = dice_loss  0.0609
-    LossFunction = HuberLoss(delta=0.01)
+    # LossFunction = HuberLoss(delta=0.01)
 
     train_loader = get_loader(opt.train_img_dir, opt.train_gt_dir, batchsize=opt.batchsize,
                               trainsize=opt.trainsize, num_workers=12)
