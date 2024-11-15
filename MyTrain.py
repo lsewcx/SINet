@@ -27,8 +27,8 @@ if __name__ == "__main__":
     parser.add_argument('--save_epoch', type=int, default=10,
                         help='every N epochs save your trained snapshot')
     parser.add_argument('--save_model', type=str, default='./Snapshot/2020-CVPR-SINet/')
-    parser.add_argument('--train_img_dir', type=str, default='./Dataset/TrainDataset/Image/')
-    parser.add_argument('--train_gt_dir', type=str, default='./Dataset/TrainDataset/GT/')
+    parser.add_argument('--train_img_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/Imgs')
+    parser.add_argument('--train_gt_dir', type=str, default='/kaggle/input/cod10k-train/TrainDataset/GT')
     opt = parser.parse_args()
 
     torch.cuda.set_device(opt.gpu)
