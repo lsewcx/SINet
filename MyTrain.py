@@ -3,7 +3,7 @@ import argparse
 from Src.utils.loss import dice_loss, HuberLoss
 from Src.SINet import SINet_ResNet50
 from Src.utils.Dataloader import get_loader
-from Src.utils.trainer import trainer, adjust_lr
+from Src.utils.trainer import trainer, adjust_lr, save_best_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # print('-' * 30, model_SINet, '-' * 30)
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
-    # LogitsBCE = torch.nn.BCEWithLogitsLoss() eval:
+    # LogitsBCE = torch.nn.BCEWithLogitsLoss() eval:0.0689
     # LossFunction = dice_loss  0.0609
     LossFunction = HuberLoss(delta=0.01)
 
@@ -49,8 +49,12 @@ if __name__ == "__main__":
                     "Training Save: {}\ntotal_num: {}\n".format(opt.train_img_dir, opt.train_gt_dir, opt.lr,
                                                               opt.batchsize, opt.save_model, total_step), '-' * 30)
 
-    for epoch_iter in range(1, opt.epoch):
+    # 初始化 best_mae
+    best_mae = float('inf')
+
+    for epoch_iter in range(1, opt.epoch + 1):
         adjust_lr(optimizer, epoch_iter, opt.decay_rate, opt.decay_epoch)
-        trainer(train_loader=train_loader, model=model_SINet,
-                optimizer=optimizer, epoch=epoch_iter,
-                opt=opt, loss_func=LossFunction, total_step=total_step)
+        best_mae = trainer(train_loader=train_loader, model=model_SINet,
+                           optimizer=optimizer, epoch=epoch_iter,
+                           opt=opt, loss_func=LossFunction, total_step=total_step,
+                           best_mae=best_mae, save_best_model=save_best_model)
