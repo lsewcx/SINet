@@ -1,14 +1,9 @@
 import torch
 import argparse
+from Src.utils.loss import dice_loss, HuberLoss
 from Src.SINet import SINet_ResNet50
 from Src.utils.Dataloader import get_loader
 from Src.utils.trainer import trainer, adjust_lr
-
-def dice_loss(pred, target, smooth=1e-5):
-    pred = torch.sigmoid(pred)
-    intersection = (pred * target).sum()
-    dice = (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
-    return 1 - dice
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -43,7 +38,8 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
     # LogitsBCE = torch.nn.BCEWithLogitsLoss()
-    LogitsBCE = dice_loss
+    # LossFunction = dice_loss  0.0791
+    LossFunction = HuberLoss(delta=0.01)
 
     train_loader = get_loader(opt.train_img_dir, opt.train_gt_dir, batchsize=opt.batchsize,
                               trainsize=opt.trainsize, num_workers=12)
@@ -57,4 +53,4 @@ if __name__ == "__main__":
         adjust_lr(optimizer, epoch_iter, opt.decay_rate, opt.decay_epoch)
         trainer(train_loader=train_loader, model=model_SINet,
                 optimizer=optimizer, epoch=epoch_iter,
-                opt=opt, loss_func=LogitsBCE, total_step=total_step)
+                opt=opt, loss_func=LossFunction, total_step=total_step)

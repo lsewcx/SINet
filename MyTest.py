@@ -28,6 +28,10 @@ model = SINet_ResNet50().to(device)
 model.load_state_dict(torch.load(opt.model_path, map_location=device))
 model.eval()
 
+# 初始化总的 MAE 和图像计数
+total_mae = 0.0
+total_images = 0
+
 for dataset in ['COD10K']:
     save_path = opt.test_save + dataset + '/'
     os.makedirs(save_path, exist_ok=True)
@@ -57,9 +61,15 @@ for dataset in ['COD10K']:
         np.save(save_path + name.replace('.png', '.npy'), cam)
         # 评估
         mae = eval_mae(torch.from_numpy(cam).to(device), torch.from_numpy(gt).to(device))
+        total_mae += mae.item()
+        total_images += 1
         # 粗略评分
         print('[Eval-Test] Dataset: {}, Image: {} ({}/{}), MAE: {}'.format(dataset, name, img_count,
                                                                            test_loader.size, mae))
         img_count += 1
+
+# 计算并输出平均 MAE
+average_mae = total_mae / total_images
+print(f"\n[Summary] Average MAE: {average_mae:.4f} over {total_images} images")
 
 print("\n[Congratulations! Testing Done]")
