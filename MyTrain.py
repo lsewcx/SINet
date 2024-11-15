@@ -3,8 +3,6 @@ import argparse
 from Src.SINet import SINet_ResNet50
 from Src.utils.Dataloader import get_loader
 from Src.utils.trainer import trainer, adjust_lr
-from apex import amp
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -39,8 +37,6 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model_SINet.parameters(), opt.lr)
     LogitsBCE = torch.nn.BCEWithLogitsLoss()
-
-    net, optimizer = amp.initialize(model_SINet, optimizer, opt_level='O1')     # NOTES: Ox not 0x
 
     train_loader = get_loader(opt.train_img_dir, opt.train_gt_dir, batchsize=opt.batchsize,
                               trainsize=opt.trainsize, num_workers=12)
