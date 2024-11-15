@@ -4,6 +4,42 @@ import torchvision.models as models
 from .SearchAttention import SA
 from Src.backbone.ResNet import ResNet_2Branch
 
+class CoordAttention(nn.Module):
+    def __init__(self, in_channels, out_channels, reduction=32):
+        super(CoordAttention, self).__init__()
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+
+        mip = max(8, in_channels // reduction)
+
+        self.conv1 = nn.Conv2d(in_channels, mip, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.ReLU()
+
+        self.conv_h = nn.Conv2d(mip, out_channels, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, out_channels, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x):
+        identity = x
+        n, c, h, w = x.size()
+
+        x_h = self.pool_h(x)
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)
+
+        y = torch.cat([x_h, x_w], dim=2)
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.act(y)
+
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        x_w = x_w.permute(0, 1, 3, 2)
+
+        a_h = self.conv_h(x_h).sigmoid()
+        a_w = self.conv_w(x_w).sigmoid()
+
+        out = identity * a_h * a_w
+        return out
+
 class BasicConv2d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1):
         super(BasicConv2d, self).__init__()
@@ -151,6 +187,10 @@ class SINet_ResNet50(nn.Module):
         self.upsample_8 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
         self.SA = SA()
 
+        self.CA1 = CoordAttention(256, 256)
+        self.CA2 = CoordAttention(512, 512)
+        self.CA3 = CoordAttention(1024, 1024)
+        self.CA4 = CoordAttention(2048, 2048)
         if self.training:
             self.initialize_weights()
 
@@ -163,7 +203,9 @@ class SINet_ResNet50(nn.Module):
         # - 低级特征
         x0 = self.resnet.maxpool(x0)    # (BS, 64, 88, 88)
         x1 = self.resnet.layer1(x0)     # (BS, 256, 88, 88)
+        x1 = self.CA1(x1)
         x2 = self.resnet.layer2(x1)     # (BS, 512, 44, 44)
+        x2 = self.CA2(x2)
 
         # ---- Stage-1: 搜索模块 (SM) ----
         x01 = torch.cat((x0, x1), dim=1)        # (BS, 64+256, 88, 88)
@@ -172,7 +214,9 @@ class SINet_ResNet50(nn.Module):
 
         x2_sm = x2                              # (512, 44, 44)
         x3_sm = self.resnet.layer3_1(x2_sm)     # (1024, 22, 22)
+        x3_sm = self.CA3(x3_sm)
         x4_sm = self.resnet.layer4_1(x3_sm)     # (2048, 11, 11)
+        x4_sm = self.CA4(x4_sm)
 
         x2_sm_cat = torch.cat((x2_sm,
                                self.upsample_2(x3_sm),
