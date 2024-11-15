@@ -203,9 +203,9 @@ class SINet_ResNet50(nn.Module):
         # - 低级特征
         x0 = self.resnet.maxpool(x0)    # (BS, 64, 88, 88)
         x1 = self.resnet.layer1(x0)     # (BS, 256, 88, 88)
-        # x1 = self.CA1(x1)
+        x1 = self.CA1(x1)
         x2 = self.resnet.layer2(x1)     # (BS, 512, 44, 44)
-        # x2 = self.CA2(x2)
+        x2 = self.CA2(x2)
 
         # ---- Stage-1: 搜索模块 (SM) ----
         x01 = torch.cat((x0, x1), dim=1)        # (BS, 64+256, 88, 88)
@@ -214,9 +214,9 @@ class SINet_ResNet50(nn.Module):
 
         x2_sm = x2                              # (512, 44, 44)
         x3_sm = self.resnet.layer3_1(x2_sm)     # (1024, 22, 22)
-        # x3_sm = self.CA3(x3_sm)
+        x3_sm = self.CA3(x3_sm)
         x4_sm = self.resnet.layer4_1(x3_sm)     # (2048, 11, 11)
-        # x4_sm = self.CA4(x4_sm)
+        x4_sm = self.CA4(x4_sm)
 
         x2_sm_cat = torch.cat((x2_sm,
                                self.upsample_2(x3_sm),
