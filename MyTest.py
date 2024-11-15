@@ -14,8 +14,8 @@ parser.add_argument('--model_path', type=str,
                     default='./Snapshot/2020-CVPR-SINet/SINet_40.pth')
 parser.add_argument('--test_save', type=str,
                     default='./Result/2020-CVPR-SINet-New/')
-parser.add_argument('--image_root', type=str, default="/kaggle/input/cod10k-test/TestDataset/Imgs/",required=True, help='the root directory of test images')
-parser.add_argument('--gt_root', type=str, default="/kaggle/input/cod10k-test/TestDataset/GT/",required=True, help='the root directory of ground truth images')
+parser.add_argument('--image_root', type=str, default="/kaggle/input/cod10k-test/TestDataset/Imgs/", help='the root directory of test images')
+parser.add_argument('--gt_root', type=str, default="/kaggle/input/cod10k-test/TestDataset/GT/", help='the root directory of ground truth images')
 opt = parser.parse_args()
 
 model = SINet_ResNet50().cuda()
