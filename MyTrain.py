@@ -20,7 +20,7 @@ if __name__ == "__main__":
                         help='decay rate of learning rate per decay step')
     parser.add_argument('--decay_epoch', type=int, default=30,
                         help='every N epochs decay lr')
-    parser.add_argument('--gpu', type=int, default=1,
+    parser.add_argument('--gpu', type=int, default=0,
                         help='choose which gpu you use')
     parser.add_argument('--save_epoch', type=int, default=10,
                         help='every N epochs save your trained snapshot')
