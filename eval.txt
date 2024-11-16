@@ -1,0 +1,1 @@
+Average MAE: 0.1711, Average E-measure: 0.2499, Average F-measure: 0.5660, Average F_beta: 0.3478, Average S_object: 0.9029, Average S_region: 0.3398, Average Structure_measure: 0.6214

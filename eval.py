@@ -1,14 +1,16 @@
+from concurrent.futures import ThreadPoolExecutor
 import os
 import numpy as np
-import torch
 from sklearn.metrics import mean_absolute_error
 from skimage import io
 from scipy.ndimage import distance_transform_edt, gaussian_filter
+from tqdm import tqdm
+
 
 def fmeasure_calu(sMap, gtMap, gtsize, threshold):
     """
     计算 F-measure。
-    
+
     :param sMap: 显著图（numpy 数组）
     :param gtMap: 地面真值图像（numpy 数组）
     :param gtsize: 地面真值图像的尺寸
@@ -37,10 +39,11 @@ def fmeasure_calu(sMap, gtMap, gtsize, threshold):
 
     return PreFtem, RecallFtem, FmeasureF
 
+
 def emeasure(FM, GT):
     """
     计算增强对齐度量（E-measure）。
-    
+
     :param FM: 二值前景图（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 增强对齐得分
@@ -67,13 +70,14 @@ def emeasure(FM, GT):
     # 3. 计算 E-measure 得分
     w, h = GT.shape
     score = np.sum(enhanced_matrix) / (w * h - 1 + np.finfo(float).eps)
-    
+
     return score
+
 
 def alignment_term(dFM, dGT):
     """
     计算对齐矩阵
-    
+
     :param dFM: double 类型的前景图
     :param dGT: double 类型的地面真值图
     :return: 对齐矩阵
@@ -87,84 +91,62 @@ def alignment_term(dFM, dGT):
     align_GT = dGT - mu_GT
 
     # 计算对齐矩阵
-    align_matrix = 2 * (align_GT * align_FM) / (align_GT * align_GT + align_FM * align_FM + np.finfo(float).eps)
-    
+    align_matrix = (
+        2
+        * (align_GT * align_FM)
+        / (align_GT * align_GT + align_FM * align_FM + np.finfo(float).eps)
+    )
+
     return align_matrix
+
 
 def enhanced_alignment_term(align_matrix):
     """
     计算增强对齐矩阵
-    
+
     :param align_matrix: 对齐矩阵
     :return: 增强对齐矩阵
     """
     enhanced = ((align_matrix + 1) ** 2) / 4
     return enhanced
 
+
 def cal_mae(smap, gt_img):
     """
     计算显著图和地面真值图像之间的平均绝对误差（MAE）。
-    
+
     :param smap: 显著图（numpy 数组）
     :param gt_img: 地面真值图像（numpy 数组）
     :return: MAE 值
     """
     if smap.shape != gt_img.shape:
-        raise ValueError('显著图和地面真值图像的尺寸不同！')
+        raise ValueError("显著图和地面真值图像的尺寸不同！")
 
     if not np.issubdtype(gt_img.dtype, np.bool_):
         gt_img = gt_img > 128
 
     smap = smap.astype(np.float64)
     gt_img = gt_img.astype(np.float64)
-    
+
     mae = mean_absolute_error(gt_img, smap)
-    
+
     return mae
 
-def load_npy_files_from_folder(folder):
-    """
-    从文件夹中加载所有 .npy 文件
-    
-    :param folder: 文件夹路径
-    :return: .npy 文件列表
-    """
-    npy_files = []
-    for filename in os.listdir(folder):
-        if filename.endswith('.npy'):
-            npy_file = np.load(os.path.join(folder, filename))
-            npy_files.append(npy_file)
-    return npy_files
-
-def load_png_files_from_folder(folder):
-    """
-    从文件夹中加载所有 PNG 图片
-    
-    :param folder: 文件夹路径
-    :return: 图片列表
-    """
-    png_files = []
-    for filename in os.listdir(folder):
-        if filename.endswith('.png'):
-            img = io.imread(os.path.join(folder, filename))
-            if img is not None:
-                png_files.append(img)
-    return png_files
 
 def original_wfb(FG, GT):
     """
     计算加权 F-beta 度量（Weighted F-beta measure）。
-    
+
     :param FG: 二值/非二值前景图，值范围在 [0, 1] 之间（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 加权 F-beta 得分
     """
     if not isinstance(FG, np.ndarray) or FG.dtype != np.float64:
-        raise ValueError('FG 应该是 double 类型的 numpy 数组')
+        raise ValueError("FG 应该是 double 类型的 numpy 数组")
     if np.max(FG) > 1 or np.min(FG) < 0:
-        raise ValueError('FG 应该在 [0, 1] 范围内')
+        raise ValueError("FG 应该在 [0, 1] 范围内")
     if not isinstance(GT, np.ndarray) or GT.dtype != np.bool_:
-        raise ValueError('GT 应该是逻辑类型的 numpy 数组')
+        raise ValueError("GT 应该是逻辑类型的 numpy 数组")
 
     dGT = GT.astype(np.float64)  # 使用 double 进行计算
 
@@ -193,10 +175,11 @@ def original_wfb(FG, GT):
 
     return Q
 
+
 def s_object(prediction, GT):
     """
     计算前景图和地面真值之间的对象相似度。
-    
+
     :param prediction: 二值/非二值前景图，值范围在 [0, 1] 之间（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 对象相似度得分
@@ -214,10 +197,11 @@ def s_object(prediction, GT):
 
     return Q
 
+
 def object_similarity(prediction, GT):
     """
     计算对象相似度。
-    
+
     :param prediction: 前景图（numpy 数组）
     :param GT: 地面真值图（numpy 数组）
     :return: 对象相似度得分
@@ -229,21 +213,23 @@ def object_similarity(prediction, GT):
         prediction = prediction.astype(np.float64)
 
     if not isinstance(prediction, np.ndarray) or prediction.dtype != np.float64:
-        raise ValueError('prediction 应该是 double 类型的 numpy 数组')
+        raise ValueError("prediction 应该是 double 类型的 numpy 数组")
     if np.max(prediction) > 1 or np.min(prediction) < 0:
-        raise ValueError('prediction 应该在 [0, 1] 范围内')
+        raise ValueError("prediction 应该在 [0, 1] 范围内")
     if not isinstance(GT, np.ndarray) or GT.dtype != np.bool_:
-        raise ValueError('GT 应该是逻辑类型的 numpy 数组')
+        raise ValueError("GT 应该是逻辑类型的 numpy 数组")
 
     x = np.mean(prediction[GT])
     sigma_x = np.std(prediction[GT])
 
     score = 2.0 * x / (x**2 + 1.0 + sigma_x + np.finfo(float).eps)
     return score
+
+
 def s_region(prediction, GT):
     """
     计算前景图和地面真值之间的区域相似度。
-    
+
     :param prediction: 二值/非二值前景图，值范围在 [0, 1] 之间（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 区域相似度得分
@@ -251,7 +237,9 @@ def s_region(prediction, GT):
     X, Y = centroid(GT)
 
     GT_1, GT_2, GT_3, GT_4, w1, w2, w3, w4 = divide_gt(GT, X, Y)
-    prediction_1, prediction_2, prediction_3, prediction_4 = divide_prediction(prediction, X, Y)
+    prediction_1, prediction_2, prediction_3, prediction_4 = divide_prediction(
+        prediction, X, Y
+    )
 
     Q1 = ssim(prediction_1, GT_1)
     Q2 = ssim(prediction_2, GT_2)
@@ -262,10 +250,11 @@ def s_region(prediction, GT):
 
     return Q
 
+
 def centroid(GT):
     """
     计算地面真值的质心。
-    
+
     :param GT: 二值地面真值图（numpy 数组）
     :return: 质心的坐标 (X, Y)
     """
@@ -283,10 +272,11 @@ def centroid(GT):
 
     return X, Y
 
+
 def divide_gt(GT, X, Y):
     """
     根据地面真值的质心将其分为 4 个区域，并返回权重。
-    
+
     :param GT: 二值地面真值图（numpy 数组）
     :param X: 质心的 X 坐标
     :param Y: 质心的 Y 坐标
@@ -307,10 +297,11 @@ def divide_gt(GT, X, Y):
 
     return LT, RT, LB, RB, w1, w2, w3, w4
 
+
 def divide_prediction(prediction, X, Y):
     """
     根据地面真值的质心将前景图分为 4 个区域。
-    
+
     :param prediction: 二值/非二值前景图（numpy 数组）
     :param X: 质心的 X 坐标
     :param Y: 质心的 Y 坐标
@@ -325,10 +316,11 @@ def divide_prediction(prediction, X, Y):
 
     return LT, RT, LB, RB
 
+
 def ssim(prediction, GT):
     """
     计算前景图和地面真值之间的结构相似度（SSIM）。
-    
+
     :param prediction: 二值/非二值前景图，值范围在 [0, 1] 之间（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 结构相似度得分
@@ -347,7 +339,7 @@ def ssim(prediction, GT):
     sigma_xy = np.sum((prediction - x) * (dGT - y)) / (N - 1 + np.finfo(float).eps)
 
     alpha = 4 * x * y * sigma_xy
-    beta = (x ** 2 + y ** 2) * (sigma_x2 + sigma_y2)
+    beta = (x**2 + y**2) * (sigma_x2 + sigma_y2)
 
     if alpha != 0:
         Q = alpha / (beta + np.finfo(float).eps)
@@ -358,20 +350,21 @@ def ssim(prediction, GT):
 
     return Q
 
+
 def structure_measure(prediction, GT):
     """
     计算前景图和地面真值之间的结构相似度。
-    
+
     :param prediction: 二值/非二值前景图，值范围在 [0, 1] 之间（numpy 数组）
     :param GT: 二值地面真值图（numpy 数组）
     :return: 计算的相似度得分
     """
     if not isinstance(prediction, np.ndarray) or prediction.dtype != np.float64:
-        raise ValueError('The prediction should be double type...')
+        raise ValueError("The prediction should be double type...")
     if np.max(prediction) > 1 or np.min(prediction) < 0:
-        raise ValueError('The prediction should be in the range of [0 1]...')
+        raise ValueError("The prediction should be in the range of [0 1]...")
     if not isinstance(GT, np.ndarray) or GT.dtype != np.bool_:
-        raise ValueError('GT should be logical type...')
+        raise ValueError("GT should be logical type...")
 
     y = np.mean(GT)
 
@@ -389,12 +382,61 @@ def structure_measure(prediction, GT):
 
     return Q
 
+
+def load_npy_files_from_folder(folder):
+    npy_files = {}
+    for filename in os.listdir(folder):
+        if filename.endswith(".npy"):
+            npy_files[filename] = np.load(os.path.join(folder, filename))
+    return npy_files
+
+
+def load_and_convert_png_files_from_folder(folder, save_folder):
+    png_files = {}
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    for filename in os.listdir(folder):
+        if filename.endswith(".png"):
+            img = io.imread(os.path.join(folder, filename))
+            npy_filename = filename.replace(".png", ".npy")
+            np.save(os.path.join(save_folder, npy_filename), img)
+            png_files[npy_filename] = img
+    return png_files
+
+
+def process_file(filename, smap_files, gt_files):
+    if filename in gt_files:
+        smap = smap_files[filename].astype(np.float64)
+        gt_img = gt_files[filename].astype(np.bool_)
+
+        mae = cal_mae(smap, gt_img)
+        Emeasure = emeasure(smap, gt_img)
+        PreFtem, RecallFtem, FmeasureF = fmeasure_calu(smap, gt_img, gt_img.shape, 0.5)
+        F_beta = original_wfb(smap, gt_img)
+        s_object_score = s_object(smap, gt_img)
+        s_region_score = s_region(smap, gt_img)
+        structure_measure_score = structure_measure(smap, gt_img)
+
+        return (
+            mae,
+            Emeasure,
+            FmeasureF,
+            F_beta,
+            s_object_score,
+            s_region_score,
+            structure_measure_score,
+        )
+    return None
+
+
 if __name__ == "__main__":
-    smap_folder = 'SINet/Result/2020-CVPR-SINet-New/COD10K/'  # 替换为显著图文件夹路径
-    gt_folder = 'testgt'  # 替换为地面真值图像文件夹路径
+    smap_folder = "Result/2020-CVPR-SINet-New/COD10K"  # 替换为显著图文件夹路径
+    gt_folder = "COD10K/GT"  # 替换为地面真值图像文件夹路径
+    gt_npy_folder = "COD10K/GT_NPY"  # 保存转换后的地面真值图像的文件夹路径
 
     smap_files = load_npy_files_from_folder(smap_folder)
-    gt_files = load_png_files_from_folder(gt_folder)
+    gt_files = load_npy_files_from_folder(gt_npy_folder)
+    # gt_files = load_and_convert_png_files_from_folder(gt_folder, gt_npy_folder)
 
     mae_list = []
     emeasure_list = []
@@ -404,27 +446,35 @@ if __name__ == "__main__":
     s_region_list = []
     structure_measure_list = []
 
-    for smap, gt_img in zip(smap_files, gt_files):
-        # 将 smap 转换为 double 类型的 numpy 数组
-        smap = smap.astype(np.float64)
-        gt_img = gt_img.astype(np.bool_)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        results = list(
+            tqdm(
+                executor.map(
+                    lambda filename: process_file(filename, smap_files, gt_files),
+                    smap_files,
+                ),
+                total=len(smap_files),
+            )
+        )
 
-        # 计算 MAE
-        mae = cal_mae(smap, gt_img)
-        Emeasure = emeasure(smap, gt_img)
-        PreFtem, RecallFtem, FmeasureF = fmeasure_calu(smap, gt_img, gt_img.shape, 0.5)
-        F_beta = original_wfb(smap, gt_img)
-        s_object_score = s_object(smap, gt_img)
-        s_region_score = s_region(smap, gt_img)
-        structure_measure_score = structure_measure(smap, gt_img)
-
-        mae_list.append(mae)
-        emeasure_list.append(Emeasure)
-        fmeasure_list.append(FmeasureF)
-        fbeta_list.append(F_beta)
-        s_object_list.append(s_object_score)
-        s_region_list.append(s_region_score)
-        structure_measure_list.append(structure_measure_score)
+    for result in results:
+        if result:
+            (
+                mae,
+                Emeasure,
+                FmeasureF,
+                F_beta,
+                s_object_score,
+                s_region_score,
+                structure_measure_score,
+            ) = result
+            mae_list.append(mae)
+            emeasure_list.append(Emeasure)
+            fmeasure_list.append(FmeasureF)
+            fbeta_list.append(F_beta)
+            s_object_list.append(s_object_score)
+            s_region_list.append(s_region_score)
+            structure_measure_list.append(structure_measure_score)
 
     # 计算平均值
     avg_mae = np.mean(mae_list)
@@ -436,12 +486,11 @@ if __name__ == "__main__":
     avg_structure_measure = np.mean(structure_measure_list)
 
     # 输出平均值结果
-    result = (f'Average MAE: {avg_mae:.4f}, Average E-measure: {avg_emeasure:.4f}, '
-              f'Average F-measure: {avg_fmeasure:.4f}, Average F_beta: {avg_fbeta:.4f}, '
-              f'Average S_object: {avg_s_object:.4f}, Average S_region: {avg_s_region:.4f}, '
-              f'Average Structure_measure: {avg_structure_measure:.4f}')
+    result = (
+        f"Average MAE: {avg_mae:.4f}, Average E-measure: {avg_emeasure:.4f}, "
+        f"Average F-measure: {avg_fmeasure:.4f}, Average F_beta: {avg_fbeta:.4f}, "
+        f"Average S_object: {avg_s_object:.4f}, Average S_region: {avg_s_region:.4f}, "
+        f"Average Structure_measure: {avg_structure_measure:.4f}"
+    )
     print(result)
-
-    # 将平均值结果写入文本文件
-    with open('evaluation_results.txt', 'w') as f:
-        f.write(result + '\n')
+    
