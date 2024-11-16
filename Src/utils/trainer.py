@@ -38,6 +38,18 @@ def adjust_lr(optimizer, epoch, decay_rate=0.1, decay_epoch=30):
     for param_group in optimizer.param_groups:
         param_group['lr'] *= decay
 
+def save_best_model(model, save_path, epoch):
+    """
+    Save the best model
+    :param model:
+    :param save_path:
+    :param epoch:
+    :return:
+    """
+    model_save_path = os.path.join(save_path, f'SINet_best_{epoch}.pth')
+    torch.save(model.state_dict(), model_save_path)
+    print(f'Saved best model at epoch {epoch}')
+
 def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step, best_mae, save_best_model):
     """
     Training iteration
@@ -97,19 +109,6 @@ def trainer(train_loader, model, optimizer, epoch, opt, loss_func, total_step, b
 
     if average_mae < best_mae:
         best_mae = average_mae
-        save_best_model(model, save_path, epoch, best_mae)
+        save_best_model(model, save_path, epoch)
 
     return best_mae
-
-def save_best_model(model, save_path, epoch, best_mae):
-    """
-    Save the best model
-    :param model:
-    :param save_path:
-    :param epoch:
-    :param best_mae:
-    :return:
-    """
-    model_save_path = os.path.join(save_path, f'SINet_best_{epoch}_MAE_{best_mae:.4f}.pth')
-    torch.save(model.state_dict(), model_save_path)
-    print(f'Saved best model at epoch {epoch} with MAE {best_mae:.4f}')
